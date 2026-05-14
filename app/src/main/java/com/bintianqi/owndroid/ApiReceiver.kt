@@ -1,11 +1,14 @@
 package com.bintianqi.owndroid
 
+import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.util.Log
 import com.bintianqi.owndroid.utils.hash
+import java.io.File
 
 class ApiReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -88,6 +91,44 @@ class ApiReceiver : BroadcastReceiver() {
                             dpm.setScreenCaptureDisabled(dar, false)
                         }
 
+                        "INSTALL" -> {
+                            val apkPath = intent.getStringExtra("apk_path")
+                            if (apkPath.isNullOrEmpty()) {
+                                log += "\nMissing apk_path extra"
+                                return@safeDpmCall
+                            }
+                            val file = File(apkPath)
+                            if (!file.exists()) {
+                                log += "\nFile not found: $apkPath"
+                                return@safeDpmCall
+                            }
+                            val packageInstaller = context.packageManager.packageInstaller
+                            val params = PackageInstaller.SessionParams(
+                                PackageInstaller.SessionParams.MODE_FULL_INSTALL
+                            )
+                            val sessionId = packageInstaller.createSession(params)
+                            val session = packageInstaller.openSession(sessionId)
+                            try {
+                                file.inputStream().use { input ->
+                                    session.openWrite("package", 0, file.length()).use { output ->
+                                        input.copyTo(output)
+                                        session.fsync(output)
+                                    }
+                                }
+                                val pi = PendingIntent.getBroadcast(
+                                    context, sessionId,
+                                    Intent("com.bintianqi.owndroid.INSTALL_STATUS"),
+                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                                )
+                                session.commit(pi.intentSender)
+                                session.close()
+                                log += "\nInstall session committed: $apkPath"
+                            } catch (e: Exception) {
+                                session.abandon()
+                                throw e
+                            }
+                        }
+
                         else -> {
                             log += "\nInvalid action"
                         }
@@ -108,3 +149,4 @@ class ApiReceiver : BroadcastReceiver() {
         private const val TAG = "API"
     }
 }
+
