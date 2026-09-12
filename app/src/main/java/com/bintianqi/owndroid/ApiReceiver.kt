@@ -129,6 +129,23 @@ class ApiReceiver : BroadcastReceiver() {
                             }
                         }
 
+                        "UNINSTALL" -> {
+                            if (app.isNullOrEmpty()) {
+                                log += "\nMissing package extra"
+                                return@safeDpmCall
+                            }
+                            val packageInstaller = context.packageManager.packageInstaller
+                            val pi = PendingIntent.getBroadcast(
+                                context, app.hashCode(),
+                                Intent("com.bintianqi.owndroid.UNINSTALL_STATUS").apply {
+                                    putExtra("package", app)
+                                },
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            )
+                            packageInstaller.uninstall(app, pi.intentSender)
+                            log += "\nUninstall requested: $app"
+                        }
+
                         else -> {
                             log += "\nInvalid action"
                         }
