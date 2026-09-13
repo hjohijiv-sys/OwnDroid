@@ -20,8 +20,10 @@ class ApiReceiver : BroadcastReceiver() {
             val app = intent.getStringExtra("package")
             val permission = intent.getStringExtra("permission")
             val restriction = intent.getStringExtra("restriction")
+            val activity = intent.getStringExtra("activity")
             if (!app.isNullOrEmpty()) log += "\npackage: $app"
             if (!permission.isNullOrEmpty()) log += "\npermission: $permission"
+            if (!activity.isNullOrEmpty()) log += "\nactivity: $activity"
             try {
                 myApp.container.privilegeHelper.safeDpmCall {
                     @SuppressWarnings("NewApi")
@@ -144,6 +146,22 @@ class ApiReceiver : BroadcastReceiver() {
                             )
                             packageInstaller.uninstall(app, pi.intentSender)
                             log += "\nUninstall requested: $app"
+                        }
+
+                        "SET_PREFERRED_ACTIVITY" -> {
+                            val activityClass = intent.getStringExtra("activity")
+                            val mimeType = intent.getStringExtra("mime_type")
+                            if (app.isNullOrEmpty() || activityClass.isNullOrEmpty() || mimeType.isNullOrEmpty()) {
+                                log += "\nMissing package, activity or mime_type extra"
+                                return@safeDpmCall
+                            }
+                            val filter = android.content.IntentFilter(Intent.ACTION_VIEW).apply {
+                                addCategory(Intent.CATEGORY_DEFAULT)
+                                addDataType(mimeType)
+                            }
+                            val target = android.content.ComponentName(app, activityClass)
+                            dpm.addPersistentPreferredActivity(dar, filter, target)
+                            log += "\nPreferred activity set: $app/$activityClass for $mimeType"
                         }
 
                         else -> {
