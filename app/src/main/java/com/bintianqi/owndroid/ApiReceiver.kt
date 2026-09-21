@@ -164,6 +164,15 @@ class ApiReceiver : BroadcastReceiver() {
                             log += "\nPreferred activity set: $app/$activityClass for $mimeType"
                         }
 
+                        "CLEAR_PREFERRED_ACTIVITY" -> {
+                            if (app.isNullOrEmpty()) {
+                                log += "\nMissing package extra"
+                                return@safeDpmCall
+                            }
+                            dpm.clearPackagePersistentPreferredActivities(dar, app)
+                            log += "\nPreferred activities cleared for: $app"
+                        }
+
                         else -> {
                             log += "\nInvalid action"
                         }
